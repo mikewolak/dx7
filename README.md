@@ -245,7 +245,7 @@ This software is **EXCLUSIVELY AUTHORIZED** for:
 
 **STRICTLY FORBIDDEN** uses include but are not limited to:
 - ❌ **Commercial distribution** or sale in any form
-- ❌ **Educational use** in academic institutions  
+  ✅ **Educational use** in academic institutions permitted  
 - ❌ **Research publication** or academic citation
 - ❌ **Open source** release or contribution
 - ❌ **Derivative works** or modifications for external use
