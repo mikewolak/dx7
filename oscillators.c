@@ -1,9 +1,13 @@
 #include "dx7.h"
+#include "midi_input.h"
 
 #define TWO_PI (2.0 * M_PI)
 
 // External global sample rate
 extern int g_sample_rate;
+
+// External MIDI system for mod wheel access
+extern midi_input_system_t g_midi_system;
 
 // Convert MIDI note to frequency
 double midi_note_to_frequency(int midi_note) {
@@ -107,13 +111,27 @@ double process_operators(voice_state_t* voice, const dx7_patch_t* patch) {
     double op_outputs[MAX_OPERATORS];
     double op_levels[MAX_OPERATORS];
     
-    // Update LFO
-    voice->lfo_phase += (double)patch->lfo_speed / 99.0 * 6.0 / g_sample_rate; // Max ~6 Hz
+    // Calculate LFO speed with simple mod wheel control
+    double lfo_speed = (double)patch->lfo_speed / 99.0 * 6.0; // Base speed (0-6 Hz)
+    
+    // Get mod wheel value and apply simple multiplier
+    double mod_wheel = 0.0;
+    if (g_midi_system.active && g_midi_system.play_mode) {
+        mod_wheel = g_midi_system.controllers.mod_wheel;
+    }
+    
+    // Simple mod wheel mapping: 0.1x to 3.0x speed
+    double speed_multiplier = 0.1 + (mod_wheel * 2.9);
+    lfo_speed *= speed_multiplier;
+    
+    // Update LFO - BACK TO ORIGINAL SIMPLE APPROACH
+    voice->lfo_phase += lfo_speed / g_sample_rate;
     if (voice->lfo_phase >= 1.0) voice->lfo_phase -= 1.0;
     
+    // Generate simple LFO value - ORIGINAL APPROACH
     double lfo_value = sin(TWO_PI * voice->lfo_phase);
     
-    // Process each operator
+    // Process each operator - BACK TO ORIGINAL
     for (int i = 0; i < MAX_OPERATORS; i++) {
         const dx7_operator_t* op = &patch->operators[i];
         operator_state_t* op_state = &voice->operators[i];
@@ -125,7 +143,7 @@ double process_operators(voice_state_t* voice, const dx7_patch_t* patch) {
         double vel_factor = 1.0 - (1.0 - voice->velocity) * (op->key_vel_sens / 7.0);
         double total_level = (double)op->output_level / 99.0 * env_level * vel_factor * op_state->level_scale;
         
-        // Apply LFO amplitude modulation
+        // Apply LFO amplitude modulation - ORIGINAL APPROACH
         double lfo_amp_mod = 1.0 + (lfo_value * (double)patch->lfo_amd / 99.0 * 0.5);
         total_level *= lfo_amp_mod;
         
@@ -134,10 +152,10 @@ double process_operators(voice_state_t* voice, const dx7_patch_t* patch) {
         // Generate sine wave (raw output without level scaling)
         op_outputs[i] = sin(TWO_PI * op_state->phase);
         
-        // Update phase
+        // Update phase - ORIGINAL APPROACH
         double freq_with_lfo = op_state->freq;
         
-        // Apply LFO pitch modulation
+        // Apply LFO pitch modulation - ORIGINAL APPROACH
         if (patch->lfo_pmd > 0) {
             double pitch_mod = lfo_value * (double)patch->lfo_pmd / 99.0 * (patch->lfo_pitch_mod_sens / 7.0) * 0.1;
             freq_with_lfo *= pow(2.0, pitch_mod);

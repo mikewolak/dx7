@@ -5,7 +5,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <sndfile.h>
+#include "midi_manager.h"
 
 #define MAX_OPERATORS 6
 // Default sample rate (can be overridden)
@@ -130,6 +133,25 @@ double process_algorithm(const double* op_outputs, const double* op_levels, int 
 void get_algorithm_routing(int algorithm, int* carriers, int* num_carriers, 
                           int routing[MAX_OPERATORS][MAX_OPERATORS]);
 
+// DX7 SysEx structure
+typedef struct {
+    uint8_t start_sysex;     // 0xF0
+    uint8_t manufacturer;    // 0x43 (Yamaha)
+    uint8_t sub_status;      // 0x00 (device 0) + channel
+    uint8_t format;          // 0x00 (voice data)
+    uint8_t byte_count_msb;  // 0x01
+    uint8_t byte_count_lsb;  // 0x1B (155 decimal)
+    uint8_t voice_data[155]; // Packed voice parameters
+    uint8_t checksum;        // 2's complement
+    uint8_t end_sysex;       // 0xF7
+} __attribute__((packed)) dx7_sysex_voice_t;
+
+// Function declarations from dx7_sysex.c
+bool dx7_patch_to_sysex(const dx7_patch_t* patch, dx7_sysex_voice_t* sysex, int channel);
+bool dx7_sysex_to_patch(const dx7_sysex_voice_t* sysex, dx7_patch_t* patch);
+uint8_t calculate_dx7_checksum(const uint8_t* data, size_t length);
+bool dx7_send_patch_to_device(void* device_handle, const dx7_patch_t* patch, int channel);
+
 // Function declarations from main.c
 int load_patch(const char* filename, dx7_patch_t* patch);
 void print_usage(const char* program_name);
@@ -137,5 +159,26 @@ double calculate_lfo_frequency(const dx7_patch_t* patch);
 int calculate_perfect_loop_samples(const dx7_patch_t* patch, int num_cycles);
 int find_zero_crossing_loop_end(voice_state_t* voice, const dx7_patch_t* patch, 
                                 int target_samples, float* buffer, int max_samples);
+void list_midi_devices(void);
+bool send_patch_to_midi_device(int device_index, const dx7_patch_t* patch, int channel);
+
+// Function declarations from midi_input.c
+bool midi_input_initialize(const dx7_patch_t* patch, int input_device, int channel);
+void midi_input_shutdown(void);
+bool midi_input_start_play_mode(void);
+void midi_input_stop_play_mode(void);
+void generate_audio_block(float* output_buffer, int frame_count, double sample_rate);
+void print_midi_stats(void);
+void print_active_voices(void);
+
+// MIDI platform functions (from MacMidiDevice.m)
+bool midi_platform_initialize(void);
+void midi_platform_shutdown(void);
+midi_device_list_t* midi_get_device_list(void);
+void midi_free_device_list(midi_device_list_t *list);
+bool midi_platform_open_output_device(int device_index, void **device_handle);
+void midi_platform_close_device(void *device_handle);
+bool midi_platform_send_data(void *device_handle, const uint8_t *data, size_t length);
+void midi_platform_set_input_callback(midi_input_callback_t callback);
 
 #endif // DX7_H
